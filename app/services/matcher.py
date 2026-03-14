@@ -25,6 +25,13 @@ class ResumeMatcherService:
         "job summary",
         "position",
         "job title",
+        "mô tả công việc",
+        "yêu cầu",
+        "trách nhiệm",
+        "quyền lợi",
+        "kỹ năng",
+        "vị trí",
+        "tuyển dụng",
     ]
     RESUME_KEYWORDS = [
         "education",
@@ -34,6 +41,12 @@ class ResumeMatcherService:
         "experience",
         "internship",
         "objective",
+        "học vấn",
+        "kinh nghiệm",
+        "dự án",
+        "chứng chỉ",
+        "thông tin cá nhân",
+        "mục tiêu nghề nghiệp",
     ]
 
     def __init__(self) -> None:
@@ -56,10 +69,21 @@ class ResumeMatcherService:
 
     def jd_confidence(self, text: str, filename: str) -> int:
         normalized = clean_text(text).lower()
+        filename_lower = filename.lower()
         jd_score = sum(normalized.count(k) for k in self.JD_KEYWORDS)
         resume_score = sum(normalized.count(k) for k in self.RESUME_KEYWORDS)
-        filename_hint = "jd" in filename.lower() or "description" in filename.lower()
-        return jd_score + (20 if filename_hint else 0) - resume_score
+        
+        # Nhận diện qua tên file
+        is_jd_filename = "jd" in filename_lower or "description" in filename_lower or "tuyen dung" in filename_lower
+        is_resume_filename = "cv" in filename_lower or "resume" in filename_lower or "so yeu ly lich" in filename_lower
+        
+        confidence = jd_score - resume_score
+        if is_jd_filename:
+            confidence += 20
+        if is_resume_filename:
+            confidence -= 20
+            
+        return confidence
 
     def is_probable_jd(self, text: str, filename: str) -> bool:
         return self.jd_confidence(text, filename) > 0

@@ -120,6 +120,8 @@ class ResumeRankerService:
 
         results: list[RankedCandidate] = []
         for resume_name, resume_text in resume_files.items():
+            best_candidate: RankedCandidate | None = None
+            
             for jd_name, jd_text in jd_files.items():
                 score = self.matcher.similarity_score(jd_text, resume_text)
                 matched_skills, missing_skills, extracted_skills = self.matcher.compare_skills(
@@ -127,19 +129,24 @@ class ResumeRankerService:
                 )
                 top_keywords = self.matcher.extract_top_keywords(jd_text, resume_text)
 
-                results.append(
-                    RankedCandidate(
-                        filename=resume_name,
-                        candidate_name=self.extract_candidate_name(resume_text, resume_name),
-                        compared_jd=jd_name,
-                        score=score,
-                        matched_skills=matched_skills,
-                        missing_skills=missing_skills,
-                        extracted_skills=extracted_skills,
-                        top_keywords=top_keywords,
-                        extracted_text_preview=preview_text(resume_text),
-                    )
+                candidate = RankedCandidate(
+                    filename=resume_name,
+                    candidate_name=self.extract_candidate_name(resume_text, resume_name),
+                    compared_jd=jd_name,
+                    score=score,
+                    matched_skills=matched_skills,
+                    missing_skills=missing_skills,
+                    extracted_skills=extracted_skills,
+                    top_keywords=top_keywords,
+                    extracted_text_preview=preview_text(resume_text),
                 )
+                
+                # Chỉ giữ lại kết quả tốt nhất của CV này với JD phù hợp nhất
+                if best_candidate is None or score > best_candidate.score:
+                    best_candidate = candidate
+            
+            if best_candidate:
+                results.append(best_candidate)
 
         if not results and parse_errors:
             raise ValueError("All uploaded files failed to parse: " + " | ".join(parse_errors))

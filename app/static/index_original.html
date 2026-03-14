@@ -1,9 +1,9 @@
-<!DOCTYPE html>
-<html lang="vi">
+﻿<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hệ thống Xếp hạng CV AI</title>
+    <title>Resume Ranker Test</title>
     <style>
       :root {
         --bg: #f4f7fb;
@@ -150,12 +150,6 @@
         font-size: 13px;
       }
 
-      .divider {
-        border: none;
-        border-top: 1px dashed var(--border);
-        margin: 14px 0;
-      }
-
       @media (max-width: 760px) {
         body {
           padding: 14px;
@@ -170,44 +164,31 @@
   <body>
     <div class="container">
       <div class="card">
-        <h1>Hệ thống Xếp hạng CV AI</h1>
-        <p>
-          Cách 1: Nhập nội dung JD (văn bản) + tải lên file CV.<br />
-          Cách 2: Tải lên file JD + tải lên file CV (hệ thống sẽ đọc nội dung JD từ file).
-        </p>
+        <h1>Resume Ranker Test</h1>
+        <p>Option 1: enter JD text + upload CV files. Option 2: leave JD text empty and upload mixed JD/CV files.</p>
 
         <form id="rankForm">
-          <!-- JD Text -->
           <div class="field">
-            <label for="jd_text">Nội dung JD (tùy chọn — hoặc dùng file JD bên dưới):</label>
+            <label for="jd_text">JD text (optional)</label>
             <textarea
               id="jd_text"
               name="jd_text"
-              placeholder="Ví dụ: Lập trình viên Backend Python với FastAPI, Docker, SQL..."
+              placeholder="Example: Backend Python developer with FastAPI, Docker, SQL..."
             ></textarea>
           </div>
 
-          <!-- JD File upload (mới thêm) -->
           <div class="field">
-            <label for="jd_files">Tải lên file JD (PDF, DOCX, TXT — tùy chọn):</label>
-            <input id="jd_files" name="jd_files" type="file" accept=".pdf,.docx,.txt" multiple />
-          </div>
-
-          <hr class="divider" />
-
-          <!-- CV File upload -->
-          <div class="field">
-            <label for="cv_files">Tải lên tệp tin CV (PDF, DOCX, TXT):</label>
-            <input id="cv_files" name="cv_files" type="file" accept=".pdf,.docx,.txt" multiple required />
+            <label for="files">Upload files (PDF, DOCX, TXT)</label>
+            <input id="files" name="files" type="file" accept=".pdf,.docx,.txt" multiple required />
           </div>
 
           <div class="row">
             <div class="field">
-              <label for="top_k">Số lượng kết quả (tùy chọn):</label>
-              <input id="top_k" name="top_k" type="number" min="1" step="1" placeholder="Ví dụ: 10" />
+              <label for="top_k">Top K (optional)</label>
+              <input id="top_k" name="top_k" type="number" min="1" step="1" placeholder="Example: 10" />
             </div>
             <div class="field" style="display: flex; align-items: flex-end">
-              <button type="submit" class="btn" id="submitBtn">Bắt đầu Xếp hạng</button>
+              <button type="submit" class="btn" id="submitBtn">Run Ranking</button>
             </div>
           </div>
         </form>
@@ -237,7 +218,7 @@
 
       function renderResult(data) {
         if (!data || !data.ranked_candidates || !data.ranked_candidates.length) {
-          resultEl.innerHTML = "<p>Không có dữ liệu để hiển thị.</p>";
+          resultEl.innerHTML = "<p>No candidates to display.</p>";
           return;
         }
 
@@ -246,22 +227,22 @@
             return `
               <div class="candidate">
                 <h3>${c.candidate_name || c.filename} - ${c.score}%</h3>
-                <p class="meta">File CV: ${c.filename}</p>
-                <p class="meta">JD đối chiếu: ${c.compared_jd || "manual_jd_text"}</p>
-                ${renderTags("Kỹ năng phù hợp", c.matched_skills)}
-                ${renderTags("Kỹ năng còn thiếu", c.missing_skills)}
-                ${renderTags("Kỹ năng trích xuất", c.extracted_skills)}
-                ${renderTags("Từ khóa quan trọng", c.top_keywords)}
-                <div class="tag-group"><strong>Bản xem trước CV:</strong> ${c.extracted_text_preview || ""}</div>
+                <p class="meta">Resume: ${c.filename}</p>
+                <p class="meta">Compared JD: ${c.compared_jd || "manual_jd_text"}</p>
+                ${renderTags("Matched skills", c.matched_skills)}
+                ${renderTags("Missing skills", c.missing_skills)}
+                ${renderTags("Extracted skills", c.extracted_skills)}
+                ${renderTags("Top keywords", c.top_keywords)}
+                <div class="tag-group"><strong>Preview:</strong> ${c.extracted_text_preview || ""}</div>
               </div>
             `;
           })
           .join("");
 
         resultEl.innerHTML = `
-          <h2>Kết quả Phân tích</h2>
-          <p class="meta">Xem trước JD: ${data.jd_preview || ""}</p>
-          <p class="meta">Tổng số ứng viên: ${data.total_files}</p>
+          <h2>Results</h2>
+          <p class="meta">JD preview: ${data.jd_preview || ""}</p>
+          <p class="meta">Total ranked rows: ${data.total_files}</p>
           ${candidatesHtml}
         `;
       }
@@ -269,45 +250,41 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         resultEl.innerHTML = "";
-        setStatus("Đang xử lý...", "");
+        setStatus("Processing...", "");
         submitBtn.disabled = true;
 
         try {
-          const jdText = document.getElementById("jd_text").value.trim();
-          const jdFiles = document.getElementById("jd_files").files;
-          const cvFiles = document.getElementById("cv_files").files;
-          const topK = document.getElementById("top_k").value.trim();
-
           const formData = new FormData();
+          const jdText = document.getElementById("jd_text").value.trim();
+          const topK = document.getElementById("top_k").value.trim();
+          const files = document.getElementById("files").files;
+
+          if (jdText) formData.append("jd_text", jdText);
           if (topK) formData.append("top_k", topK);
-
-          // Nếu có file JD hoặc cả 2 → dùng endpoint rank-with-jd-file
-          if (jdFiles.length > 0) {
-            for (const f of jdFiles)  formData.append("jd_files", f);
-            for (const f of cvFiles) formData.append("cv_files", f);
-
-            const res = await fetch("/api/v1/rank-with-jd-file", { method: "POST", body: formData });
-            const payload = await res.json();
-            if (!res.ok) throw new Error(payload.detail || "Không thể xếp hạng tài liệu.");
-            renderResult(payload);
-          } else {
-            // Dùng endpoint cũ với jd_text
-            if (jdText) formData.append("jd_text", jdText);
-            for (const f of cvFiles) formData.append("files", f);
-
-            let response = await fetch("/api/v1/rank", { method: "POST", body: formData });
-            if (response.status === 404) {
-              const fallback = jdText ? "/api/v1/rank-resumes" : "/api/v1/rank-documents-auto";
-              response = await fetch(fallback, { method: "POST", body: formData });
-            }
-            const payload = await response.json();
-            if (!response.ok) throw new Error(payload.detail || "Không thể xếp hạng tài liệu.");
-            renderResult(payload);
+          for (const file of files) {
+            formData.append("files", file);
           }
 
-          setStatus("Hoàn tất.", "ok");
+          let response = await fetch("/api/v1/rank", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.status === 404) {
+            const legacyEndpoint = jdText ? "/api/v1/rank-resumes" : "/api/v1/rank-documents-auto";
+            response = await fetch(legacyEndpoint, {
+              method: "POST",
+              body: formData,
+            });
+          }
+
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.detail || "Cannot rank documents.");
+
+          renderResult(payload);
+          setStatus("Done.", "ok");
         } catch (error) {
-          setStatus(error.message || "Lỗi không xác định.", "err");
+          setStatus(error.message || "Unexpected error.", "err");
         } finally {
           submitBtn.disabled = false;
         }
