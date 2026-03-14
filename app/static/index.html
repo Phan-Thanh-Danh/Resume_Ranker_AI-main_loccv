@@ -1,0 +1,294 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resume Ranker Test</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --card: #ffffff;
+        --text: #1d2433;
+        --muted: #5a677f;
+        --primary: #0b66ff;
+        --primary-dark: #074fcc;
+        --border: #dbe3f0;
+        --ok: #0f9d58;
+        --warn: #c5221f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: radial-gradient(circle at top right, #e7efff, var(--bg) 48%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 8px 24px rgba(27, 48, 89, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+
+      p {
+        margin-top: 0;
+        color: var(--muted);
+      }
+
+      .field {
+        margin-bottom: 14px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+
+      input[type="file"],
+      input[type="number"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 15px;
+      }
+
+      textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 15px;
+        min-height: 110px;
+        resize: vertical;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 180px;
+        gap: 12px;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 10px;
+        padding: 11px 16px;
+        color: #fff;
+        background: var(--primary);
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        background: var(--primary-dark);
+      }
+
+      .status {
+        margin: 12px 0 0;
+        font-size: 14px;
+      }
+
+      .status.ok {
+        color: var(--ok);
+      }
+
+      .status.err {
+        color: var(--warn);
+      }
+
+      .result {
+        margin-top: 18px;
+      }
+
+      .candidate {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 10px;
+      }
+
+      .candidate h3 {
+        margin: 0 0 8px;
+        font-size: 17px;
+      }
+
+      .meta {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .tag-group {
+        margin-top: 8px;
+      }
+
+      .tag {
+        display: inline-block;
+        background: #eef4ff;
+        border: 1px solid #d3e2ff;
+        border-radius: 999px;
+        padding: 3px 9px;
+        margin: 3px 6px 0 0;
+        font-size: 13px;
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 14px;
+        }
+
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>Resume Ranker Test</h1>
+        <p>Option 1: enter JD text + upload CV files. Option 2: leave JD text empty and upload mixed JD/CV files.</p>
+
+        <form id="rankForm">
+          <div class="field">
+            <label for="jd_text">JD text (optional)</label>
+            <textarea
+              id="jd_text"
+              name="jd_text"
+              placeholder="Example: Backend Python developer with FastAPI, Docker, SQL..."
+            ></textarea>
+          </div>
+
+          <div class="field">
+            <label for="files">Upload files (PDF, DOCX, TXT)</label>
+            <input id="files" name="files" type="file" accept=".pdf,.docx,.txt" multiple required />
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="top_k">Top K (optional)</label>
+              <input id="top_k" name="top_k" type="number" min="1" step="1" placeholder="Example: 10" />
+            </div>
+            <div class="field" style="display: flex; align-items: flex-end">
+              <button type="submit" class="btn" id="submitBtn">Run Ranking</button>
+            </div>
+          </div>
+        </form>
+
+        <p class="status" id="status"></p>
+
+        <div class="result" id="result"></div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("rankForm");
+      const statusEl = document.getElementById("status");
+      const resultEl = document.getElementById("result");
+      const submitBtn = document.getElementById("submitBtn");
+
+      function setStatus(message, type = "") {
+        statusEl.className = type ? `status ${type}` : "status";
+        statusEl.textContent = message || "";
+      }
+
+      function renderTags(title, items) {
+        if (!items || !items.length) return "";
+        const tags = items.map((item) => `<span class="tag">${item}</span>`).join("");
+        return `<div class="tag-group"><strong>${title}:</strong><br>${tags}</div>`;
+      }
+
+      function renderResult(data) {
+        if (!data || !data.ranked_candidates || !data.ranked_candidates.length) {
+          resultEl.innerHTML = "<p>No candidates to display.</p>";
+          return;
+        }
+
+        const candidatesHtml = data.ranked_candidates
+          .map((c) => {
+            return `
+              <div class="candidate">
+                <h3>${c.candidate_name || c.filename} - ${c.score}%</h3>
+                <p class="meta">Resume: ${c.filename}</p>
+                <p class="meta">Compared JD: ${c.compared_jd || "manual_jd_text"}</p>
+                ${renderTags("Matched skills", c.matched_skills)}
+                ${renderTags("Missing skills", c.missing_skills)}
+                ${renderTags("Extracted skills", c.extracted_skills)}
+                ${renderTags("Top keywords", c.top_keywords)}
+                <div class="tag-group"><strong>Preview:</strong> ${c.extracted_text_preview || ""}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        resultEl.innerHTML = `
+          <h2>Results</h2>
+          <p class="meta">JD preview: ${data.jd_preview || ""}</p>
+          <p class="meta">Total ranked rows: ${data.total_files}</p>
+          ${candidatesHtml}
+        `;
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        resultEl.innerHTML = "";
+        setStatus("Processing...", "");
+        submitBtn.disabled = true;
+
+        try {
+          const formData = new FormData();
+          const jdText = document.getElementById("jd_text").value.trim();
+          const topK = document.getElementById("top_k").value.trim();
+          const files = document.getElementById("files").files;
+
+          if (jdText) formData.append("jd_text", jdText);
+          if (topK) formData.append("top_k", topK);
+          for (const file of files) {
+            formData.append("files", file);
+          }
+
+          let response = await fetch("/api/v1/rank", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.status === 404) {
+            const legacyEndpoint = jdText ? "/api/v1/rank-resumes" : "/api/v1/rank-documents-auto";
+            response = await fetch(legacyEndpoint, {
+              method: "POST",
+              body: formData,
+            });
+          }
+
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.detail || "Cannot rank documents.");
+
+          renderResult(payload);
+          setStatus("Done.", "ok");
+        } catch (error) {
+          setStatus(error.message || "Unexpected error.", "err");
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
