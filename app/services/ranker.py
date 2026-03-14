@@ -70,7 +70,7 @@ class ResumeRankerService:
         results: list[RankedCandidate] = []
 
         for filename, resume_text in text_data.items():
-            score = self.matcher.similarity_score(jd_text, resume_text)
+            score = self.matcher.hybrid_score(jd_text, resume_text)
             matched_skills, missing_skills, extracted_skills = self.matcher.compare_skills(
                 jd_text, resume_text
             )
@@ -123,7 +123,7 @@ class ResumeRankerService:
             best_candidate: RankedCandidate | None = None
             
             for jd_name, jd_text in jd_files.items():
-                score = self.matcher.similarity_score(jd_text, resume_text)
+                score = self.matcher.hybrid_score(jd_text, resume_text)
                 matched_skills, missing_skills, extracted_skills = self.matcher.compare_skills(
                     jd_text, resume_text
                 )

@@ -67,6 +67,40 @@ class ResumeMatcherService:
 
         return matched, missing, extracted
 
+    def hybrid_score(self, jd_text: str, resume_text: str) -> float:
+        """
+        Tính điểm tổng hợp:
+        - 50% semantic similarity (sentence-transformers)
+        - 40% skill match ratio (kỹ năng JD có trong CV / tổng kỹ năng JD)
+        - 10% keyword overlap (TF-IDF cosine)
+        Công thức này giúp phân biệt chính xác hơn giữa các công nghệ khác nhau
+        (ví dụ: Java vs .NET), tránh để semantic similarity che khuất kỹ năng thực tế.
+        """
+        # Thành phần 1: Semantic similarity (50%)
+        semantic = self.similarity_score(jd_text, resume_text)
+
+        # Thành phần 2: Skill match ratio (40%)
+        jd_skills = set(extract_skills(jd_text))
+        resume_skills = set(extract_skills(resume_text))
+        if jd_skills:
+            matched_count = len(jd_skills.intersection(resume_skills))
+            skill_ratio = (matched_count / len(jd_skills)) * 100
+        else:
+            skill_ratio = semantic  # Nếu không trích xuất được kỹ năng → dùng semantic
+
+        # Thành phần 3: Keyword overlap TF-IDF (10%)
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity as cos_sim
+            vectorizer = TfidfVectorizer(stop_words="english", max_features=300)
+            tfidf = vectorizer.fit_transform([jd_text, resume_text])
+            kw_score = cos_sim(tfidf[0], tfidf[1])[0][0] * 100
+        except Exception:
+            kw_score = semantic
+
+        final = round(0.5 * semantic + 0.4 * skill_ratio + 0.1 * kw_score, 2)
+        return final
+
     def jd_confidence(self, text: str, filename: str) -> int:
         normalized = clean_text(text).lower()
         filename_lower = filename.lower()
